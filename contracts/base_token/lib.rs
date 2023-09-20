@@ -92,7 +92,7 @@ pub mod base_token {
                 return Err(PSP22Error::Custom(String::from("Not minter")));
             }
 
-            self.mint_to(account, amount)
+            self._mint_to(account, amount)
         }
 
         #[ink(message)]
