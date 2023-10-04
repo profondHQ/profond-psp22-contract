@@ -1,6 +1,6 @@
 # Token project using PSP22
 
-This is an example token project using ink! smart contract. The project is generated with Openbrush wizard for PSP22 with added PayableMinted trait.
+This is an example token project using ink! smart contract. The project is generated with Openbrush wizard for PSP22.
 
 ### 🏗️ How to use - Contracts
 
