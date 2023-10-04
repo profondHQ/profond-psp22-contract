@@ -24,7 +24,7 @@
   },
   "scripts": {
     "compile": "mkdir artifacts; cd contracts/base_token; cargo +nightly-2023-03-13 contract build --release; cd ../../; cp target/ink/base_token/base_token.* artifacts/; mkdir types; typechain-compiler -r --noCompile",
-    "compile:release": "typechain-compiler --release",
+    "compile:release": "typechain-compiler --toolchain nightly-2023-03-13 --release",
     "test": "mocha --require ts-node/register --recursive ./tests --extension \".spec.ts\" --exit --timeout 20000",
     "test:single": "mocha --require ts-node/register --extension \".ts\" --exit --timeout 20000"
   },
