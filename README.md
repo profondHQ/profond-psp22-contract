@@ -16,7 +16,9 @@ Then deploy contract using https://contracts-ui.substrate.io/
 
 ##### 💫 Run integration test
 
-First start your local node (https://github.com/paritytech/substrate-contracts-node). And then:
+First start your local node (https://github.com/paritytech/substrate-contracts-node). This repo is tested using version substrate-contracts-node 0.24.0-fbc28a7ad4b.
+
+And then:
 
 ```sh
 yarn
