@@ -18,6 +18,12 @@ pub mod base_token {
         is_mintable: bool,
         is_burnable: bool,
         owner_addresss: Option<AccountId>,
+        // Sale features
+        is_sale: bool,
+        sale_price: Option<Balance>,
+        start_at: Option<Timestamp>,
+        end_at: Option<Timestamp>,
+        max_supply: Option<Balance>,
     }
 
     #[ink(storage)]
@@ -40,18 +46,19 @@ pub mod base_token {
     impl Contract {
         #[ink(constructor)]
         pub fn new(
-            total_supply: Balance,
+            initial_supply: Balance,
             name: Option<String>,
             symbol: Option<String>,
             decimals: u8,
             is_pausable: bool,
             is_mintable: bool,
             is_burnable: bool,
+            is_sale: bool,
         ) -> Self {
             let mut instance = Self::default();
 
             assert!(instance
-                ._mint_to(Self::env().caller(), total_supply)
+                ._mint_to(Self::env().caller(), initial_supply)
                 .is_ok());
 
             instance.metadata.name = name;
@@ -61,12 +68,109 @@ pub mod base_token {
             instance.features.is_pausable = is_pausable;
             instance.features.is_mintable = is_mintable;
             instance.features.is_burnable = is_burnable;
+            instance.features.is_sale = is_sale;
 
             if is_mintable || is_pausable {
                 instance.features.owner_addresss = Some(Self::env().caller());
             }
 
             instance
+        }
+
+        // Get functions
+
+        #[ink(message)]
+        pub fn get_is_sale(&self) -> Result<bool, PSP22Error> {
+            Ok(self.features.is_sale)
+        }
+
+        #[ink(message)]
+        pub fn get_is_pausable(&self) -> Result<bool, PSP22Error> {
+            Ok(self.features.is_pausable)
+        }
+
+        #[ink(message)]
+        pub fn get_is_mintable(&self) -> Result<bool, PSP22Error> {
+            Ok(self.features.is_mintable)
+        }
+
+        #[ink(message)]
+        pub fn get_is_burnable(&self) -> Result<bool, PSP22Error> {
+            Ok(self.features.is_burnable)
+        }
+
+        #[ink(message)]
+        pub fn get_sale_price(&self) -> Result<Balance, PSP22Error> {
+            Ok(self.features.sale_price.unwrap())
+        }
+
+        #[ink(message)]
+        pub fn get_start_at(&self) -> Result<Timestamp, PSP22Error> {
+            Ok(self.features.start_at.unwrap())
+        }
+
+        #[ink(message)]
+        pub fn get_end_at(&self) -> Result<Timestamp, PSP22Error> {
+            Ok(self.features.end_at.unwrap())
+        }
+
+        #[ink(message)]
+        pub fn get_max_supply(&self) -> Result<Balance, PSP22Error> {
+            Ok(self.features.max_supply.unwrap())
+        }
+
+        #[ink(message)]
+        pub fn set_sale_options(
+            &mut self,
+            sale_price: Balance,
+            max_supply: Balance,
+            start_at: Timestamp,
+            end_at: Timestamp,
+        ) -> Result<(), PSP22Error> {
+            if self.env().caller() != self.features.owner_addresss.unwrap() {
+                return Err(PSP22Error::Custom(String::from("Not minter")));
+            }
+
+            self.features.sale_price = Some(sale_price);
+            self.features.max_supply = Some(max_supply);
+            self.features.start_at = Some(start_at);
+            self.features.end_at = Some(end_at);
+
+            Ok(())
+        }
+
+        #[ink(message, payable)]
+        pub fn buy(&mut self, amount: Balance) -> Result<Balance, PSP22Error> {
+            let receiver_address = self.env().caller();
+            let transferred_value = self.env().transferred_value();
+            let current_timestamp = self.env().block_timestamp();
+
+            if !self.features.is_sale || self.features.sale_price.is_none() {
+                return Err(PSP22Error::Custom(String::from("Feature not enabled")));
+            }
+
+            if current_timestamp < self.features.start_at.unwrap()
+                || current_timestamp > self.features.end_at.unwrap()
+            {
+                return Err(PSP22Error::Custom(String::from("Not on sale")));
+            }
+
+            if transferred_value < (self.features.sale_price.unwrap() * amount) {
+                return Err(PSP22Error::Custom(String::from("Insufficient funds")));
+            }
+
+            let total_supply = self.psp22.total_supply();
+
+            if total_supply + amount > self.features.max_supply.unwrap() {
+                return Err(PSP22Error::Custom(String::from("Insufficient supply")));
+            }
+
+            self._mint_to(receiver_address, amount)?;
+
+            self.env()
+                .transfer(self.features.owner_addresss.unwrap(), transferred_value);
+
+            Ok(amount)
         }
 
         #[ink(message)]
