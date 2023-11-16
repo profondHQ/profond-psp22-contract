@@ -3,6 +3,7 @@
 
 #[openbrush::contract]
 pub mod base_token {
+    use ink::{codegen::EmitEvent, env::DefaultEnvironment, EnvAccess};
     use openbrush::{
         contracts::pausable::*,
         contracts::psp22::{extensions::metadata::*, PSP22Error},
@@ -21,9 +22,9 @@ pub mod base_token {
         // Sale features
         is_sale: bool,
         sale_price: Option<Balance>,
+        max_supply: Option<Balance>,
         start_at: Option<Timestamp>,
         end_at: Option<Timestamp>,
-        max_supply: Option<Balance>,
     }
 
     #[ink(storage)]
@@ -37,6 +38,22 @@ pub mod base_token {
         features: EnabledFeatures,
         #[storage_field]
         pause: pausable::Data,
+    }
+
+    #[ink(event)]
+    pub struct SetSaleOptions {
+        sale_price: Balance,
+        max_supply: Balance,
+        start_at: Timestamp,
+        end_at: Timestamp,
+    }
+
+    #[ink(event)]
+    pub struct TokenBought {
+        #[ink(topic)]
+        receiver_address: AccountId,
+        #[ink(topic)]
+        amount: Balance,
     }
 
     impl PSP22 for Contract {}
@@ -119,6 +136,34 @@ pub mod base_token {
             Ok(self.features.max_supply.unwrap())
         }
 
+        fn emit_set_sale_options_event(
+            &self,
+            sale_price: Balance,
+            max_supply: Balance,
+            start_at: Timestamp,
+            end_at: Timestamp,
+        ) {
+            <EnvAccess<'_, DefaultEnvironment> as EmitEvent<Contract>>::emit_event::<SetSaleOptions>(
+                self.env(),
+                SetSaleOptions {
+                    sale_price,
+                    max_supply,
+                    start_at,
+                    end_at,
+                },
+            );
+        }
+
+        fn emit_token_bought_event(&self, receiver_address: AccountId, amount: Balance) {
+            <EnvAccess<'_, DefaultEnvironment> as EmitEvent<Contract>>::emit_event::<TokenBought>(
+                self.env(),
+                TokenBought {
+                    receiver_address,
+                    amount,
+                },
+            );
+        }
+
         #[ink(message)]
         pub fn set_sale_options(
             &mut self,
@@ -135,6 +180,8 @@ pub mod base_token {
             self.features.max_supply = Some(max_supply);
             self.features.start_at = Some(start_at);
             self.features.end_at = Some(end_at);
+
+            self.emit_set_sale_options_event(sale_price, max_supply, start_at, end_at);
 
             Ok(())
         }
@@ -169,6 +216,8 @@ pub mod base_token {
 
             self.env()
                 .transfer(self.features.owner_addresss.unwrap(), transferred_value);
+
+            self.emit_token_bought_event(receiver_address, amount);
 
             Ok(amount)
         }
