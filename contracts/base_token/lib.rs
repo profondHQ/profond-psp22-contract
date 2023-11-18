@@ -21,7 +21,7 @@ pub mod base_token {
         owner_addresss: Option<AccountId>,
         // Sale features
         is_sale: bool,
-        sale_price: Option<Balance>,
+        sale_rate: Option<Balance>,
         max_supply: Option<Balance>,
         start_at: Option<Timestamp>,
         end_at: Option<Timestamp>,
@@ -42,7 +42,7 @@ pub mod base_token {
 
     #[ink(event)]
     pub struct SetSaleOptions {
-        sale_price: Balance,
+        sale_rate: Balance,
         max_supply: Balance,
         start_at: Timestamp,
         end_at: Timestamp,
@@ -117,8 +117,8 @@ pub mod base_token {
         }
 
         #[ink(message)]
-        pub fn get_sale_price(&self) -> Result<Balance, PSP22Error> {
-            Ok(self.features.sale_price.unwrap())
+        pub fn get_sale_rate(&self) -> Result<Balance, PSP22Error> {
+            Ok(self.features.sale_rate.unwrap())
         }
 
         #[ink(message)]
@@ -138,7 +138,7 @@ pub mod base_token {
 
         fn emit_set_sale_options_event(
             &self,
-            sale_price: Balance,
+            sale_rate: Balance,
             max_supply: Balance,
             start_at: Timestamp,
             end_at: Timestamp,
@@ -146,7 +146,7 @@ pub mod base_token {
             <EnvAccess<'_, DefaultEnvironment> as EmitEvent<Contract>>::emit_event::<SetSaleOptions>(
                 self.env(),
                 SetSaleOptions {
-                    sale_price,
+                    sale_rate,
                     max_supply,
                     start_at,
                     end_at,
@@ -167,7 +167,7 @@ pub mod base_token {
         #[ink(message)]
         pub fn set_sale_options(
             &mut self,
-            sale_price: Balance,
+            sale_rate: Balance,
             max_supply: Balance,
             start_at: Timestamp,
             end_at: Timestamp,
@@ -176,23 +176,24 @@ pub mod base_token {
                 return Err(PSP22Error::Custom(String::from("Not minter")));
             }
 
-            self.features.sale_price = Some(sale_price);
+            self.features.sale_rate = Some(sale_rate);
             self.features.max_supply = Some(max_supply);
             self.features.start_at = Some(start_at);
             self.features.end_at = Some(end_at);
 
-            self.emit_set_sale_options_event(sale_price, max_supply, start_at, end_at);
+            self.emit_set_sale_options_event(sale_rate, max_supply, start_at, end_at);
 
             Ok(())
         }
 
         #[ink(message, payable)]
-        pub fn buy(&mut self, amount: Balance) -> Result<Balance, PSP22Error> {
+        pub fn buy(&mut self) -> Result<Balance, PSP22Error> {
             let receiver_address = self.env().caller();
             let transferred_value = self.env().transferred_value();
             let current_timestamp = self.env().block_timestamp();
+            let amount = transferred_value * self.features.sale_rate.unwrap();
 
-            if !self.features.is_sale || self.features.sale_price.is_none() {
+            if !self.features.is_sale || self.features.sale_rate.is_none() {
                 return Err(PSP22Error::Custom(String::from("Feature not enabled")));
             }
 
@@ -200,10 +201,6 @@ pub mod base_token {
                 || current_timestamp > self.features.end_at.unwrap()
             {
                 return Err(PSP22Error::Custom(String::from("Not on sale")));
-            }
-
-            if transferred_value < (self.features.sale_price.unwrap() * amount) {
-                return Err(PSP22Error::Custom(String::from("Insufficient funds")));
             }
 
             let total_supply = self.psp22.total_supply();

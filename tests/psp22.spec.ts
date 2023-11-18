@@ -121,7 +121,7 @@ describe("PSP22 Testing", () => {
 
         await contract.withSigner(deployer).tx.setSaleOptions(SALE_PRICE.toString(), MAX_SUPPLY.toString(), START_AT, END_AT);
 
-        const sale_price = (await contract.query.getSalePrice()).value.ok.ok.toString();
+        const sale_price = (await contract.query.getSaleRate()).value.ok.ok.toString();
         const max_supply = (await contract.query.getMaxSupply()).value.ok.ok.toString();
         const start_at = (await contract.query.getStartAt()).value.ok.ok;
         const end_at = (await contract.query.getEndAt()).value.ok.ok;
@@ -141,11 +141,11 @@ describe("PSP22 Testing", () => {
 
         const amount = BigInt(0.5 * 10 ** DECIMALS);
 
-        const result = await contract.withSigner(bob).query.buy(amount.toString());
+        const result = await contract.withSigner(bob).query.buy();
 
         await contract
             .withSigner(bob)
-            .tx.buy(amount.toString(), { value: (SALE_PRICE * amount).toString() });
+            .tx.buy({ value: (SALE_PRICE * amount).toString() });
 
         const balanceAfter = BigInt((await contract.query.balanceOf(bob.address, null)).value.unwrap().toString());
         expect(balanceAfter - balanceBefore).to.equal(amount);
