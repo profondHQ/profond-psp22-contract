@@ -22,9 +22,13 @@ describe("PSP22 Testing", () => {
     let contract: BaseToken;
 
     const DECIMALS = 18;
-    const TOTAL_SUPPLY = BigInt(1000000000 * 10 ** DECIMALS);
+    const INITIAL_SUPPLY = BigInt(100 * 10 ** DECIMALS);
+    const MAX_SUPPLY = BigInt(1000 * 10 ** DECIMALS);
     const NAME = "PepeToken";
     const SYMBOL = "PEPE";
+    const SALE_PRICE = BigInt(1 * 10 ** DECIMALS) / BigInt(10 ** DECIMALS);
+    const START_AT = 0;
+    const END_AT = 1707868800000;
 
     async function setup(): Promise<void> {
 
@@ -35,13 +39,14 @@ describe("PSP22 Testing", () => {
         baseTokenFactory = new BaseToken_factory(api, deployer);
         contract = new BaseToken(
             (await baseTokenFactory.new(
-                TOTAL_SUPPLY.toString(),
+                INITIAL_SUPPLY.toString(),
                 Array.from((new TextEncoder()).encode(NAME)),
                 Array.from((new TextEncoder()).encode(SYMBOL)),
                 DECIMALS,
                 true,
                 true,
-                true
+                true,
+                true,
             )).address,
             deployer,
             api
@@ -61,7 +66,7 @@ describe("PSP22 Testing", () => {
 
         const balanceBefore = BigInt((await contract.query.balanceOf(deployer.address, null)).value.unwrap().toString());
 
-        const transferAmount = BigInt(1000000 * 10 ** DECIMALS)
+        const transferAmount = BigInt(1 * 10 ** DECIMALS)
 
         await contract.withSigner(deployer).tx.transfer(bob.address, transferAmount.toString(), [], null);
 
@@ -75,7 +80,7 @@ describe("PSP22 Testing", () => {
 
         const balanceBefore = BigInt((await contract.query.balanceOf(deployer.address, null)).value.unwrap().toString());
 
-        const mintAmount = BigInt(1000000 * 10 ** DECIMALS)
+        const mintAmount = BigInt(1 * 10 ** DECIMALS)
 
         await contract.withSigner(deployer).tx.mintTo(deployer.address, mintAmount.toString());
 
@@ -89,12 +94,61 @@ describe("PSP22 Testing", () => {
 
         const balanceBefore = BigInt((await contract.query.balanceOf(deployer.address, null)).value.unwrap().toString());
 
-        const burnAmount = BigInt(1000000 * 10 ** DECIMALS)
+        const burnAmount = BigInt(1 * 10 ** DECIMALS)
 
         await contract.withSigner(deployer).tx.burn(burnAmount.toString());
 
         const balanceAfter = BigInt((await contract.query.balanceOf(deployer.address, null)).value.unwrap().toString());
 
         expect(balanceBefore - balanceAfter).to.equal(burnAmount);
+    })
+
+    it("Get works", async () => {
+        await setup();
+        const is_pausable = (await contract.query.getIsPausable()).value.ok.ok;
+        const is_mintable = (await contract.query.getIsMintable()).value.ok.ok;
+        const is_burnable = (await contract.query.getIsBurnable()).value.ok.ok;
+        const is_sale = (await contract.query.getIsSale()).value.ok.ok;
+
+        expect(is_pausable).to.be.equal(true);
+        expect(is_mintable).to.be.equal(true);
+        expect(is_burnable).to.be.equal(true);
+        expect(is_sale).to.be.equal(true);
+    })
+
+    it("Create sale", async () => {
+        await setup();
+
+        await contract.withSigner(deployer).tx.setSaleOptions(SALE_PRICE.toString(), MAX_SUPPLY.toString(), START_AT, END_AT);
+
+        const sale_price = (await contract.query.getSaleRate()).value.ok.ok.toString();
+        const max_supply = (await contract.query.getMaxSupply()).value.ok.ok.toString();
+        const start_at = (await contract.query.getStartAt()).value.ok.ok;
+        const end_at = (await contract.query.getEndAt()).value.ok.ok;
+
+        expect(sale_price).to.equal(SALE_PRICE.toString());
+        expect(max_supply).to.equal(MAX_SUPPLY.toString());
+        expect(start_at).to.equal(START_AT);
+        expect(end_at).to.equal(END_AT);
+    })
+
+    it("Buy works", async () => {
+        await setup();
+
+        await contract.withSigner(deployer).tx.setSaleOptions(SALE_PRICE.toString(), MAX_SUPPLY.toString(), START_AT, END_AT);
+
+        const balanceBefore = BigInt((await contract.query.balanceOf(bob.address, null)).value.unwrap().toString());
+
+        const amount = BigInt(0.5 * 10 ** DECIMALS);
+
+        const result = await contract.withSigner(bob).query.buy();
+
+        await contract
+            .withSigner(bob)
+            .tx.buy({ value: (SALE_PRICE * amount).toString() });
+
+        const balanceAfter = BigInt((await contract.query.balanceOf(bob.address, null)).value.unwrap().toString());
+        expect(balanceAfter - balanceBefore).to.equal(amount);
+
     })
 })
