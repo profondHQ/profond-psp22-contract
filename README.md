@@ -4,6 +4,12 @@ This is an example token project using ink! smart contract. The project is gener
 
 ### 🏗️ How to use - Contracts
 
+##### Requirements
+
+```
+cargo +nightly-2023-03-13 install --force --locked cargo-contract@2.2.1
+```
+
 ##### Build and deploy
 
 Build the contract with
